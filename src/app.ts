@@ -8,7 +8,9 @@ export class App {
   private originalDocumentDirNames: [RAW, JPG];
   private rawRegExp: RegExp;
   private jpgRegExp: RegExp;
-  private isDeleteNonContrastFiles: Boolean;
+  private isRootPictureFiles: boolean;
+  private isOriginalDocumentDir: boolean;
+  private isDeleteNonContrastFiles: boolean;
 
   constructor(dirNames: string[]) {
     this.rootPath = process.cwd();
@@ -16,15 +18,20 @@ export class App {
     this.originalDocumentDirNames = [RAW, JPG];
     this.rawRegExp = /crw|cr2|cr3|nef|nrw|pef|dng|raf|srw|orf|srf|sr2|arw|rw2|3fr|dcr|kdc|mrw|rwl|mos|x3f|gpr/;
     this.jpgRegExp = /jpg/;
+    this.isRootPictureFiles = this.hasPictureFiles(this.jpgRegExp, this.rawRegExp);
+    this.isOriginalDocumentDir = this.hasDirectory(join(this.rootPath, ORIGINAL_DOCUMENT));
     this.isDeleteNonContrastFiles = false;
   }
 
   public start = async (): Promise<void> => {
-    console.info(`${CYAN}${BRIGHT}첫번째 실행: 폴더구조 만들기`);
-    console.info(`${CYAN}두번째 실행: 폴더구조가 만들어졌으면 raw파일과 jpg파일 대조 후 파일 제거\r\n`, RESET);
+    console.info(`${CYAN}${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
+    console.info(`${CYAN}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`, RESET);
 
-    const isPictureFiles = this.hasPictureFiles(this.jpgRegExp, this.rawRegExp);
-    if (!isPictureFiles) {
+    if (this.isRootPictureFiles) {
+      console.log(`${CYAN}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
+    }
+
+    if (!this.isRootPictureFiles && !this.isOriginalDocumentDir) {
       console.log(`${RED}######################## 사진파일이 없음 ########################`);
       return await this.delay(5000);
     }
@@ -32,8 +39,8 @@ export class App {
     await this.addDirectories();
     await this.addRawDirectories();
 
-    if (!isPictureFiles && this.isDeleteNonContrastFiles) {
-      console.log(`${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########`, RESET);
+    if (!this.isRootPictureFiles && this.isDeleteNonContrastFiles) {
+      console.log(`${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########\r\n`);
       await this.deleteNonContrastFiles();
     }
 
@@ -44,10 +51,9 @@ export class App {
   };
 
   private addDirectories = async (): Promise<void> => {
-    console.log(`${CYAN}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
     const isSuccess = this.dirNames.every(dirName => {
       const path = join(this.rootPath, dirName);
-      if (this.hasDirectory(path)) return false;
+      if (this.isOriginalDocumentDir) return false;
 
       mkdirSync(path);
       console.log(`${GREEN}${dirName} 폴더 생성`);
@@ -137,11 +143,7 @@ export class App {
 
   private hasDirectory = (path: string): boolean => existsSync(path);
 
-  private hasPictureFiles = (...extensions: RegExp[]) => {
-    const isPictureFiles = extensions.some(extension => this.getFiles(extension).length);
-    const isOriginalDocumentDir = this.hasDirectory(join(this.rootPath, ORIGINAL_DOCUMENT));
-    return isPictureFiles || isOriginalDocumentDir;
-  };
+  private hasPictureFiles = (...extensions: RegExp[]) => extensions.some(extension => this.getFiles(extension).length);
 
   private setIsDeleteNonContrastFiles = (flag: boolean): void => {
     this.isDeleteNonContrastFiles = flag;
