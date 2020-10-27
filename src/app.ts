@@ -31,18 +31,20 @@ export class App {
 
     await this.addDirectories();
     await this.addRawDirectories();
-    await this.movePictureFiles();
 
-    if (this.isDeleteNonContrastFiles) {
-      console.log(`${CYAN}############ raw파일과 jpg파일 대조 후 없는 파일 제거 ############`, RESET);
+    if (!isPictureFiles && this.isDeleteNonContrastFiles) {
+      console.log(`${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########`, RESET);
       await this.deleteNonContrastFiles();
     }
 
-    console.log(`\r\n${GREEN}############################## 종료 ##############################`);
+    await this.movePictureFiles();
+
+    console.log(`\r\n${GREEN}############################## 종료 ##############################\r\n`);
     await this.delay(5000);
   };
 
   private addDirectories = async (): Promise<void> => {
+    console.log(`${CYAN}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
     const isSuccess = this.dirNames.every(dirName => {
       const path = join(this.rootPath, dirName);
       if (this.hasDirectory(path)) return false;
@@ -85,7 +87,8 @@ export class App {
   private deleteNonContrastFiles = async (): Promise<void> => {
     const originalDocumentFiles = this.getOriginalDocumentFiles();
 
-    if (!originalDocumentFiles) return console.log(`\r\n${RED}####################### 삭제할 파일이 없음 #######################`);
+    if (!originalDocumentFiles)
+      return console.log(`\r\n${RED}####################### 삭제할 파일이 없음 #######################`);
 
     const [rawFiles, jpgFiles] = originalDocumentFiles;
     const isJpgUser = jpgFiles.length < rawFiles.length;
@@ -156,7 +159,7 @@ export class App {
       const pathToDelete = join(path, file);
 
       unlinkSync(pathToDelete);
-      console.log(`\r\n${YELLOW}${pathToDelete} 삭제 완료`);
+      console.log(`${YELLOW}${pathToDelete} 삭제 완료`);
     });
   };
 
@@ -166,7 +169,7 @@ export class App {
       const newPath = join(path, file);
 
       renameSync(oldPath, newPath);
-      console.log(`\r\n${YELLOW}${newPath} 이동 완료`);
+      console.log(`${YELLOW}${newPath} 이동 완료`);
     });
   };
 
