@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'fs';
 import { extname, join } from 'path';
 import { createInterface, Interface } from 'readline';
-import { BRIGHT, CYAN, GREEN, JPG, ORIGINAL_DOCUMENT, RAW, RED, RESET, YELLOW } from './type';
+import { BRIGHT, CYAN, GREEN, JPG, ORIGINAL_DOCUMENT, RAW, RESET, UNDERSCORE, YELLOW } from './type';
+import { Logger } from './util';
+
 export class App {
   private rootPath: string;
   private dirNames: string[];
@@ -26,30 +28,28 @@ export class App {
   }
 
   public start = async (): Promise<void> => {
-    console.info(`${YELLOW}${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
-    console.info(`${CYAN}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`);
+    Logger.info(`${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
+    Logger.info(`${BRIGHT}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`);
 
     if (this.isRootPictureFiles) {
-      console.log(`${RESET}${YELLOW}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
+      Logger.log('################### 1.폴더구조 만들기 및 사진이동 ###################\r\n');
     }
 
     if (!this.isRootPictureFiles && !this.isOriginalDocumentDir) {
-      console.log(`${RED}######################## 사진파일이 없음 ########################`);
+      Logger.error('######################## 사진파일이 없음 ########################');
     }
 
     await this.addDirectories();
     await this.addRawDirectories();
 
     if (!this.isRootPictureFiles && this.isDeleteNonContrastFiles) {
-      console.log(`${RESET}${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########\r\n`);
+      Logger.log('########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########\r\n');
       await this.deleteNonContrastFiles();
     }
 
     await this.movePictureFiles();
 
-    this.readline.question(`${GREEN}\r\n############################## 종료 ##############################\r\n`, () =>
-      this.readline.close(),
-    );
+    this.exitMessage();
   };
 
   private addDirectories = async (): Promise<void> => {
@@ -58,7 +58,7 @@ export class App {
       if (this.isOriginalDocumentDir) return false;
 
       mkdirSync(path);
-      console.log(`${GREEN}${dirName} 폴더 생성`);
+      Logger.log(`${dirName} 폴더 생성`);
 
       return true;
     });
@@ -74,7 +74,7 @@ export class App {
       if (this.hasDirectory(path)) return false;
 
       mkdirSync(path);
-      console.log(`${GREEN}${ORIGINAL_DOCUMENT}/${dirName} 폴더 생성`);
+      Logger.log(`${ORIGINAL_DOCUMENT}/${dirName} 폴더 생성`);
 
       return true;
     });
@@ -96,15 +96,15 @@ export class App {
     const originalDocumentFiles = this.getOriginalDocumentFiles();
 
     if (!originalDocumentFiles) {
-      return console.log(`${RED}####################### 삭제할 파일이 없음 #######################`);
+      return Logger.error('####################### 삭제할 파일이 없음 #######################');
     }
 
     const [rawFiles, jpgFiles] = originalDocumentFiles;
     const isJpgUser = jpgFiles.length < rawFiles.length;
     const path = join(this.rootPath, ORIGINAL_DOCUMENT, isJpgUser ? RAW : JPG);
 
-    if (isJpgUser) return this.deleteFiles(path, this.getFilesToDelete(rawFiles, jpgFiles));
-    this.deleteFiles(path, this.getFilesToDelete(jpgFiles, rawFiles));
+    if (isJpgUser) return this.deleteFiles(path, await this.getFilesToDelete(rawFiles, jpgFiles));
+    this.deleteFiles(path, await this.getFilesToDelete(jpgFiles, rawFiles));
   };
 
   private getFiles = (extension: string | RegExp, path = this.rootPath): string[] => {
@@ -129,9 +129,21 @@ export class App {
     return [rawFiles, jpgFiles];
   };
 
-  private getFilesToDelete = (deleteFiles: string[], compareFiles: string[]): string[] => {
-    return deleteFiles.filter(deleteFile => {
+  private getFilesToDelete = async (deleteFiles: string[], compareFiles: string[]): Promise<string[]> => {
+    const queryMessage = `${CYAN}\r\n삭제하시겠습니까 ? ${YELLOW}${UNDERSCORE}삭제:1${RESET}  ${GREEN}${UNDERSCORE}취소:2\r\n`;
+    const filesToDelete = deleteFiles.filter(deleteFile => {
       return !compareFiles.some(compareFile => this.hasSameFile(deleteFile, compareFile));
+    });
+
+    Logger.log(`${filesToDelete.join('\r\n')}`, `\r\n총 개수: ${filesToDelete.length}`);
+
+    return new Promise(resolve => {
+      this.readline.question(queryMessage, (line: string) => {
+        if (+line === 1) return resolve(filesToDelete);
+
+        this.exitMessage();
+        process.exit();
+      });
     });
   };
 
@@ -167,5 +179,10 @@ export class App {
       renameSync(oldPath, newPath);
       console.log(`${YELLOW}${newPath} 이동 완료`);
     });
+  };
+
+  private exitMessage = () => {
+    const queryMessage = `${GREEN}\r\n############################## 종료 ##############################\r\n`;
+    this.readline.question(queryMessage, () => process.exit());
   };
 }
