@@ -98,12 +98,10 @@ export class App {
 
     const [rawFiles, jpgFiles] = originalDocumentFiles;
     const isJpgUser = jpgFiles.length < rawFiles.length;
+    const path = join(this.rootPath, ORIGINAL_DOCUMENT, isJpgUser ? RAW : JPG);
 
-    const path = this.getOriginalDocumentPath(isJpgUser ? RAW : JPG);
-    const [rawFilesToDelete, jpgFilesToDelete] = this.getOriginalDocumentToDelete(originalDocumentFiles);
-
-    if (isJpgUser) return this.deleteFiles(path, rawFilesToDelete);
-    this.deleteFiles(path, jpgFilesToDelete);
+    if (isJpgUser) return this.deleteFiles(path, this.getFilesToDelete(rawFiles, jpgFiles));
+    this.deleteFiles(path, this.getFilesToDelete(jpgFiles, rawFiles));
   };
 
   private getFiles = (extension: string | RegExp, path = this.rootPath): string[] => {
@@ -128,17 +126,10 @@ export class App {
     return [rawFiles, jpgFiles];
   };
 
-  private getOriginalDocumentPath = (kind: RAW | JPG) => join(this.rootPath, ORIGINAL_DOCUMENT, kind);
-
-  private getOriginalDocumentToDelete = (originalDocumentFiles: string[][]): string[][] => {
-    const originalDocumentToDelete = originalDocumentFiles.map((originalDocumentFile, i) => {
-      return originalDocumentFile.filter((file, j) => {
-        const compareFile = originalDocumentFiles[1 - i][j];
-        return !this.hasSameFile(file, compareFile);
-      });
+  private getFilesToDelete = (deleteFiles: string[], compareFiles: string[]): string[] => {
+    return deleteFiles.filter(deleteFile => {
+      return !compareFiles.some(compareFile => this.hasSameFile(deleteFile, compareFile));
     });
-
-    return originalDocumentToDelete;
   };
 
   private hasDirectory = (path: string): boolean => existsSync(path);
@@ -151,9 +142,9 @@ export class App {
 
   private hasSameFile = (compareFile1: string, compareFile2: string): boolean => {
     const regExpFileName = /(.*)(?:\.\w+)/;
-    const [, fileName] = compareFile1.match(regExpFileName) ?? [];
+    const getFileName = (file: string) => file.match(regExpFileName)?.[1] ?? '';
 
-    return !!fileName && new RegExp(fileName).test(compareFile2);
+    return getFileName(compareFile1) === getFileName(compareFile2);
   };
 
   private deleteFiles = (path: string, files: string[]): void => {
