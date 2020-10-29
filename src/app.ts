@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'fs';
 import { extname, join } from 'path';
+import { createInterface, Interface } from 'readline';
 import { BRIGHT, CYAN, GREEN, JPG, ORIGINAL_DOCUMENT, RAW, RED, RESET, YELLOW } from './type';
-
 export class App {
   private rootPath: string;
   private dirNames: string[];
@@ -11,6 +11,7 @@ export class App {
   private isRootPictureFiles: boolean;
   private isOriginalDocumentDir: boolean;
   private isDeleteNonContrastFiles: boolean;
+  private readline: Interface;
 
   constructor(dirNames: string[]) {
     this.rootPath = process.cwd();
@@ -21,33 +22,34 @@ export class App {
     this.isRootPictureFiles = this.hasPictureFiles(this.jpgRegExp, this.rawRegExp);
     this.isOriginalDocumentDir = this.hasDirectory(join(this.rootPath, ORIGINAL_DOCUMENT));
     this.isDeleteNonContrastFiles = false;
+    this.readline = createInterface({ input: process.stdin, output: process.stdout });
   }
 
   public start = async (): Promise<void> => {
-    console.info(`${CYAN}${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
-    console.info(`${CYAN}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`, RESET);
+    console.info(`${YELLOW}${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
+    console.info(`${CYAN}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`);
 
     if (this.isRootPictureFiles) {
-      console.log(`${CYAN}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
+      console.log(`${RESET}${YELLOW}################### 1.폴더구조 만들기 및 사진이동 ###################\r\n`);
     }
 
     if (!this.isRootPictureFiles && !this.isOriginalDocumentDir) {
       console.log(`${RED}######################## 사진파일이 없음 ########################`);
-      return await this.delay(5000);
     }
 
     await this.addDirectories();
     await this.addRawDirectories();
 
     if (!this.isRootPictureFiles && this.isDeleteNonContrastFiles) {
-      console.log(`${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########\r\n`);
+      console.log(`${RESET}${CYAN}########### 2.raw파일과 jpg파일 대조 후 없는 파일 제거 ###########\r\n`);
       await this.deleteNonContrastFiles();
     }
 
     await this.movePictureFiles();
 
-    console.log(`\r\n${GREEN}############################## 종료 ##############################\r\n`);
-    await this.delay(5000);
+    this.readline.question(`${GREEN}\r\n############################## 종료 ##############################\r\n`, () =>
+      this.readline.close(),
+    );
   };
 
   private addDirectories = async (): Promise<void> => {
@@ -93,8 +95,9 @@ export class App {
   private deleteNonContrastFiles = async (): Promise<void> => {
     const originalDocumentFiles = this.getOriginalDocumentFiles();
 
-    if (!originalDocumentFiles)
-      return console.log(`\r\n${RED}####################### 삭제할 파일이 없음 #######################`);
+    if (!originalDocumentFiles) {
+      return console.log(`${RED}####################### 삭제할 파일이 없음 #######################`);
+    }
 
     const [rawFiles, jpgFiles] = originalDocumentFiles;
     const isJpgUser = jpgFiles.length < rawFiles.length;
@@ -165,6 +168,4 @@ export class App {
       console.log(`${YELLOW}${newPath} 이동 완료`);
     });
   };
-
-  private delay = async (time: number): Promise<void> => new Promise(resolve => setTimeout(resolve, time));
 }
