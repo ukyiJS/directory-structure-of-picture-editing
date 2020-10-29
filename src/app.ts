@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'fs';
 import { extname, join } from 'path';
 import { createInterface, Interface } from 'readline';
-import { BRIGHT, CYAN, GREEN, JPG, ORIGINAL_DOCUMENT, RAW, RESET, UNDERSCORE, YELLOW } from './type';
-import { Logger } from './util';
+import { GREEN, JPG, ORIGINAL_DOCUMENT, RAW } from './type';
+import { bright, Logger, underscore } from './util';
 
 export class App {
   private rootPath: string;
@@ -28,8 +28,8 @@ export class App {
   }
 
   public start = async (): Promise<void> => {
-    Logger.info(`${BRIGHT}첫번째 실행: 폴더구조 만들기 및 사진이동 만들기`);
-    Logger.info(`${BRIGHT}두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n`);
+    Logger.info(bright('첫번째 실행: 폴더구조 만들기 및 사진이동 만들기'));
+    Logger.info(bright('두번째 실행: 첫번째 작업이 완료되면 raw파일과 jpg파일 대조 후 파일 제거\r\n'));
 
     if (this.isRootPictureFiles) {
       Logger.log('################### 1.폴더구조 만들기 및 사진이동 ###################\r\n');
@@ -130,7 +130,9 @@ export class App {
   };
 
   private getFilesToDelete = async (deleteFiles: string[], compareFiles: string[]): Promise<string[]> => {
-    const queryMessage = `${CYAN}\r\n삭제하시겠습니까 ? ${YELLOW}${UNDERSCORE}삭제:1${RESET}  ${GREEN}${UNDERSCORE}취소:2\r\n`;
+    const deleteMessage = `${underscore('삭제:1', 'yellow')}`;
+    const cancelMessage = `${underscore('취소:2', 'green')}`;
+    const queryMessage = `\r\n${bright('삭제하시겠습니까 ?')} ${deleteMessage}  ${cancelMessage}\r\n`;
     const filesToDelete = deleteFiles.filter(deleteFile => {
       return !compareFiles.some(compareFile => this.hasSameFile(deleteFile, compareFile));
     });
@@ -138,11 +140,9 @@ export class App {
     Logger.log(`${filesToDelete.join('\r\n')}`, `\r\n총 개수: ${filesToDelete.length}`);
 
     return new Promise(resolve => {
-      this.readline.question(queryMessage, (line: string) => {
-        if (+line === 1) return resolve(filesToDelete);
-
-        this.exitMessage();
-        process.exit();
+      this.readline.question(queryMessage, answer => {
+        const isDelete = +answer === 1;
+        return isDelete ? resolve(filesToDelete) : this.exitMessage();
       });
     });
   };
@@ -167,7 +167,7 @@ export class App {
       const pathToDelete = join(path, file);
 
       unlinkSync(pathToDelete);
-      console.log(`${YELLOW}${pathToDelete} 삭제 완료`);
+      Logger.warn(`${pathToDelete} 삭제 완료`);
     });
   };
 
@@ -177,7 +177,7 @@ export class App {
       const newPath = join(path, file);
 
       renameSync(oldPath, newPath);
-      console.log(`${YELLOW}${newPath} 이동 완료`);
+      Logger.warn(`${newPath} 이동 완료`);
     });
   };
 
